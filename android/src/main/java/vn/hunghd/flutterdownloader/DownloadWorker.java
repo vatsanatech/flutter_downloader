@@ -395,42 +395,42 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                 PendingIntent pendingIntent = null;
                 if (status == DownloadStatus.COMPLETE) {
 
-//                     String fileSavedPath = null;
-//                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-//                         String savedPath = getMediaStoreEntryPathApi29(uriApi29);
-//                         log("File downloaded (" + savedPath + ")");
-//                         if (savedPath != null) {
-//                             scanFilePath(savedPath, contentType, uriResponse -> {
-//                                 log("MediaStore updated (" + uriResponse + ")");
-//                             });
-//                         }
-//                         fileSavedPath = savedPath;
-//                     } else {
-//                         if (fileApi21 != null) {
-//                             log("File downloaded (" + fileApi21.getPath() + ")");
-//                             scanFilePath(fileApi21.getPath(), contentType, uriResponse -> {
-//                                 log("MediaStore updated (" + uriResponse + ")");
-//                             });
-//                             fileSavedPath = fileApi21.getPath();
-//                         }
-//                     }
+                // String fileSavedPath = null;
+                // if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                //     String savedPath = getMediaStoreEntryPathApi29(uriApi29);
+                //     log("File downloaded (" + savedPath + ")");
+                //     if (savedPath != null) {
+                //         scanFilePath(savedPath, contentType, uriResponse -> {
+                //             log("MediaStore updated (" + uriResponse + ")");
+                //         });
+                //     }
+                //     fileSavedPath = savedPath;
+                // } else {
+                //     if (fileApi21 != null) {
+                //         log("File downloaded (" + fileApi21.getPath() + ")");
+                //         scanFilePath(fileApi21.getPath(), contentType, uriResponse -> {
+                //             log("MediaStore updated (" + uriResponse + ")");
+                //         });
+                //         fileSavedPath = fileApi21.getPath();
+                //     }
+                // }
 
-//                     if (clickToOpenDownloadedFile) {
-//                         if(android.os.Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && storage != PackageManager.PERMISSION_GRANTED)
-//                             return;
-//                         Intent intent = IntentUtils.validatedFileIntent(getApplicationContext(), fileSavedPath, contentType);
-//                         if (intent != null) {
-//                             log("Setting an intent to open the file " + fileSavedPath);
-//                             pendingIntent = PendingIntent.getActivity(getApplicationContext(), 0, intent, PendingIntent.FLAG_CANCEL_CURRENT);
-//                         } else {
-//                             log("There's no application that can open the file " + fileSavedPath);
-//                         }
-//                     }
-//                 }
+                // if (clickToOpenDownloadedFile) {
+                //     if(android.os.Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && storage != PackageManager.PERMISSION_GRANTED)
+                //         return;
+                //     Intent intent = IntentUtils.validatedFileIntent(getApplicationContext(), fileSavedPath, contentType);
+                //     if (intent != null) {
+                //         log("Setting an intent to open the file " + fileSavedPath);
+                //         pendingIntent = PendingIntent.getActivity(getApplicationContext(), 0, intent, PendingIntent.FLAG_CANCEL_CURRENT);
+                //     } else {
+                //         log("There's no application that can open the file " + fileSavedPath);
+                //     }
+                // }
+                }
                     
                  String packageName = context.getPackageName();
                  PackageManager packageManager = context.getPackageManager();
-                 Intent intent = packageManager.getLaunchIntentForPackage(packageName)
+                 Intent intent = packageManager.getLaunchIntentForPackage(packageName);
                  pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
                     
                 updateNotification(context, filename, status, progress, pendingIntent, true);
