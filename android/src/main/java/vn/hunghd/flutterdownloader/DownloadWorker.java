@@ -351,21 +351,24 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
                 // opens input stream from the HTTP connection
                 inputStream = httpConn.getInputStream();
+                
+                // opens an output stream to save into file
+                outputStream = new FileOutputStream(saveFilePath, isResume);
 
                 // opens an output stream to save into file
-                Uri uriApi29 = null;
-                File fileApi21 = null;
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    uriApi29 = addFileToDownloadsApi29(filename);
-                    if (isResume) {
-                        outputStream = context.getContentResolver().openOutputStream(uriApi29, "wa");
-                    } else {
-                        outputStream = context.getContentResolver().openOutputStream(uriApi29, "w");
-                    }
-                } else {
-                    fileApi21 = addFileToDownloadsApi21(filename);
-                    outputStream = new FileOutputStream(fileApi21, isResume);
-                }
+//                 Uri uriApi29 = null;
+//                 File fileApi21 = null;
+//                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+//                     uriApi29 = addFileToDownloadsApi29(filename);
+//                     if (isResume) {
+//                         outputStream = context.getContentResolver().openOutputStream(uriApi29, "wa");
+//                     } else {
+//                         outputStream = context.getContentResolver().openOutputStream(uriApi29, "w");
+//                     }
+//                 } else {
+//                     fileApi21 = addFileToDownloadsApi21(filename);
+//                     outputStream = new FileOutputStream(fileApi21, isResume);
+//                 }
 
                 long count = downloadedBytes;
                 int bytesRead = -1;
