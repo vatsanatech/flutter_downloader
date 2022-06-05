@@ -19,18 +19,22 @@ typedef DownloadCallback = void Function(
 /// Provides access to all functions of the plugin in a single place.
 class FlutterDownloader {
   static const _channel = MethodChannel('vn.hunghd/downloader');
+  
   static bool _initialized = false;
+  static bool get initialized => _initialized;
+  
   static bool _debug = false;
+  static bool get debug => _debug;
 
   /// Initializes the plugin. This must be called before any other method.
   ///
-  /// Pass true for [debug] if you want to see debug logs in the console.
+  /// If [debug] is true, then verbose logging is printed to the console.
   ///
   /// To ignore SSL-related errors on Android, set [ignoreSsl] to true. This may
   /// be useful when connecting to a test server which is not using SSL, but
   /// should be never used in production.
   static Future<void> initialize({
-    bool debug = true,
+    bool debug = false,
     bool ignoreSsl = false,
   }) async {
     assert(
@@ -307,27 +311,21 @@ class FlutterDownloader {
     }
   }
 
-  /// Registers a callback to track the status and progress of a download task.
+  /// Registers a [callback] to track the status and progress of a download
+  /// task.
   ///
-  /// **parameters:**
+  /// [callback] must be a top-level or static function of [DownloadCallback]
+  /// type which is called whenever the status or progress value of a download
+  /// task has been changed.
   ///
-  /// * `callback`: a top-level or static function of [DownloadCallback] type
-  ///   which is called whenever the status or progress value of a download task
-  ///   has been changed.
-  ///
-  /// **Note:**
-  ///
-  /// Your UI is rendered in the main isolate, while download events come from a
-  /// background isolate (in other words, codes in `callback` are run in the
+  /// Your UI is rendered on the main isolate, while download events come from a
+  /// background isolate (in other words, code in [callback] is run in the
   /// background isolate), so you have to handle the communication between two
   /// isolates.
   ///
-  /// **Example:**
-  ///
-  /// {@tool sample}
+  /// Example:
   ///
   /// ```dart
-  ///
   ///ReceivePort _port = ReceivePort();
   ///
   ///@override
@@ -343,30 +341,36 @@ class FlutterDownloader {
   ///  });
   ///
   ///  FlutterDownloader.registerCallback(downloadCallback);
-  ///
   ///}
   ///
   ///static void downloadCallback(
-  /// String id,
-  /// DownloadTaskStatus status,
-  /// int progress,
-  /// ) {
-  ///  final SendPort send = IsolateNameServer.lookupPortByName(
-  ///   'downloader_send_port',
+  ///  String id,
+  ///  DownloadTaskStatus status,
+  ///  int progress,
+  ///  ) {
+  ///    final SendPort send = IsolateNameServer.lookupPortByName(
+  ///    'downloader_send_port',
   ///  );
   ///  send.send([id, status, progress]);
   ///}
-  ///
   ///```
-  ///
-  /// {@end-tool}
-  static registerCallback(DownloadCallback callback) {
+  static registerCallback(DownloadCallback callback, {int step = 10}) {
     assert(_initialized, 'plugin flutter_downloader is not initialized');
 
-    final callbackHandle = PluginUtilities.getCallbackHandle(callback)!;
+    final callbackHandle = PluginUtilities.getCallbackHandle(callback);
+    assert(
+      callbackHandle != null,
+      'callback must be a top-level or static function',
+    );
+
+    assert(
+      0 <= step && step <= 100,
+      'step size is not in the inclusive <0;100> range',
+    );
+
     _channel.invokeMethod(
       'registerCallback',
-      <dynamic>[callbackHandle.toRawHandle()],
+      <dynamic>[callbackHandle!.toRawHandle(), step],
     );
   }
 
