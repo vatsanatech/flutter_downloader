@@ -42,7 +42,6 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLDecoder;
-import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -60,7 +59,6 @@ import androidx.work.WorkerParameters;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
@@ -81,16 +79,16 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     public static final String ARG_OPEN_FILE_FROM_NOTIFICATION = "open_file_from_notification";
     public static final String ARG_CALLBACK_HANDLE = "callback_handle";
     public static final String ARG_DEBUG = "debug";
+    public static final String ARG_STEP = "step";
     public static final String ARG_SAVE_IN_PUBLIC_STORAGE = "save_in_public_storage";
     public static final String ARG_IGNORESSL = "ignoreSsl";
 
     private static final String TAG = DownloadWorker.class.getSimpleName();
     private static final int BUFFER_SIZE = 4096;
     private static final String CHANNEL_ID = "FLUTTER_DOWNLOADER_NOTIFICATION";
-    private static final int STEP_UPDATE = 5;
 
     private static final AtomicBoolean isolateStarted = new AtomicBoolean(false);
-    private static final ArrayDeque<List> isolateQueue = new ArrayDeque<>();
+    private static final ArrayDeque<List<Object>> isolateQueue = new ArrayDeque<>();
     private static FlutterEngine backgroundFlutterEngine;
 
     private final Pattern charsetPattern = Pattern.compile("(?i)\\bcharset=\\s*\"?([^\\s;\"]*)");
@@ -108,18 +106,13 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     private int primaryId;
     private String msgStarted, msgInProgress, msgCanceled, msgFailed, msgPaused, msgComplete;
     private long lastCallUpdateNotification = 0;
+    private int step;
     private boolean saveInPublicStorage;
 
-    public DownloadWorker(@NonNull final Context context,
-                          @NonNull WorkerParameters params) {
+    public DownloadWorker(@NonNull final Context context, @NonNull WorkerParameters params) {
         super(context, params);
 
-        new Handler(context.getMainLooper()).post(new Runnable() {
-            @Override
-            public void run() {
-                startBackgroundIsolate(context);
-            }
-        });
+        new Handler(context.getMainLooper()).post(() -> startBackgroundIsolate(context));
     }
 
     private void startBackgroundIsolate(Context context) {
@@ -150,7 +143,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     }
 
     @Override
-    public void onMethodCall(MethodCall call, MethodChannel.Result result) {
+    public void onMethodCall(MethodCall call, @NonNull MethodChannel.Result result) {
         if (call.method.equals("didInitializeDispatcher")) {
             synchronized (isolateStarted) {
                 while (!isolateQueue.isEmpty()) {
@@ -193,6 +186,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         String headers = getInputData().getString(ARG_HEADERS);
         boolean isResume = getInputData().getBoolean(ARG_IS_RESUME, false);
         debug = getInputData().getBoolean(ARG_DEBUG, false);
+        step = getInputData().getInt(ARG_STEP, 10);
         ignoreSsl = getInputData().getBoolean(ARG_IGNORESSL, false);
 
         Resources res = getApplicationContext().getResources();
@@ -433,7 +427,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                     int progress = (int) ((count * 100) / (contentLength + downloadedBytes));
                     outputStream.write(buffer, 0, bytesRead);
 
-                    if ((lastProgress == 0 || progress > lastProgress + STEP_UPDATE || progress == 100)
+                    if ((lastProgress == 0 || progress > (lastProgress + step) || progress == 100)
                             && progress != lastProgress) {
                         lastProgress = progress;
 
@@ -613,10 +607,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         if (!showNotification) return;
         // Make a channel if necessary
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Create the NotificationChannel, but only on API 26+ because
-            // the NotificationChannel class is new and not in the support library
-
-
+            // Create the NotificationChannel
             Resources res = getApplicationContext().getResources();
             String channelName = res.getString(R.string.flutter_downloader_notification_channel_name);
             String channelDescription = res.getString(R.string.flutter_downloader_notification_channel_description);
@@ -836,12 +827,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         void invoke(Uri uri);
     }
 
-    final static HostnameVerifier DO_NOT_VERIFY = new HostnameVerifier() {
-
-        public boolean verify(String hostname, SSLSession session) {
-            return true;
-        }
-    };
+    final static HostnameVerifier DO_NOT_VERIFY = (hostname, session) -> true;
 
     /**
      * Trust every server - dont check for any certificate
@@ -849,26 +835,26 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     private static void trustAllHosts() {
         final String TAG = "trustAllHosts";
         // Create a trust manager that does not validate certificate chains
-        TrustManager[] trustAllCerts = new TrustManager[] { new X509TrustManager() {
+        TrustManager[] trustManagers = new TrustManager[] { new X509TrustManager() {
 
             public java.security.cert.X509Certificate[] getAcceptedIssuers() {
                 return new java.security.cert.X509Certificate[] {};
             }
 
-            public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+            public void checkClientTrusted(X509Certificate[] chain, String authType) {
                 Log.i(TAG, "checkClientTrusted");
             }
 
-            public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+            public void checkServerTrusted(X509Certificate[] chain, String authType) {
                 Log.i(TAG, "checkServerTrusted");
             }
         } };
 
         // Install the all-trusting trust manager
         try {
-            SSLContext sc = SSLContext.getInstance("TLS");
-            sc.init(null, trustAllCerts, new java.security.SecureRandom());
-            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+            SSLContext sslContent = SSLContext.getInstance("TLS");
+            sslContent.init(null, trustManagers, new java.security.SecureRandom());
+            HttpsURLConnection.setDefaultSSLSocketFactory(sslContent.getSocketFactory());
         } catch (Exception e) {
             e.printStackTrace();
         }
