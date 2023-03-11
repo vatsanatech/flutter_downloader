@@ -194,7 +194,12 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             false
         )
         taskDao?.updateTask(id.toString(), DownloadStatus.RUNNING, task.progress)
-
+        // if(filename.endsWith(".dds")){
+         //       filename = filename.replace(".dds", ".mp4");
+         //   } 
+        //    else {
+        //    filename = filename.replace(".mp4", ".dd");
+       // }
         // automatic resume for partial files. (if the workmanager unexpectedly quited in background)
         val saveFilePath = savedDir + File.separator + filename
         val partialFile = File(saveFilePath)
@@ -455,6 +460,11 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                         }
                     }
                 }
+                //String packageName = context.getPackageName();
+               //  PackageManager packageManager = context.getPackageManager();
+                // Intent intent = packageManager.getLaunchIntentForPackage(packageName)
+               //  pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+
                 taskDao!!.updateTask(id.toString(), status, progress)
                 updateNotification(context, actualFilename, status, progress, pendingIntent, true)
                 log(if (isStopped) "Download canceled" else "File downloaded")
