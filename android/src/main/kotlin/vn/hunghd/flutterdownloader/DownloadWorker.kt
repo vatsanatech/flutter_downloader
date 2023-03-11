@@ -194,12 +194,12 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             false
         )
         taskDao?.updateTask(id.toString(), DownloadStatus.RUNNING, task.progress)
-         if(filename.endsWith(".dds")){
-                filename = filename.replace(".dds", ".mp4");
-            } 
-           else {
-           filename = filename.replace(".mp4", ".dd");
-        }
+        // if(filename.endsWith(".dds")){
+         //       filename = filename.replace(".dds", ".mp4");
+         //   } 
+        //    else {
+        //    filename = filename.replace(".mp4", ".dd");
+       // }
         // automatic resume for partial files. (if the workmanager unexpectedly quited in background)
         val saveFilePath = savedDir + File.separator + filename
         val partialFile = File(saveFilePath)
