@@ -7,6 +7,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
@@ -149,7 +150,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
         taskDao = TaskDao(dbHelper!!)
         val url: String =
             inputData.getString(ARG_URL) ?: throw IllegalArgumentException("Argument '$ARG_URL' should not be null")
-        val filename: String? =
+        var filename: String? =
             inputData.getString(ARG_FILE_NAME) // ?: throw IllegalArgumentException("Argument '$ARG_FILE_NAME' should not be null")
         val savedDir: String = inputData.getString(ARG_SAVED_DIR)
             ?: throw IllegalArgumentException("Argument '$ARG_SAVED_DIR' should not be null")
@@ -194,12 +195,11 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             false
         )
         taskDao?.updateTask(id.toString(), DownloadStatus.RUNNING, task.progress)
-        // if(filename.endsWith(".dds")){
-         //       filename = filename.replace(".dds", ".mp4");
-         //   } 
-        //    else {
-        //    filename = filename.replace(".mp4", ".dd");
-       // }
+        filename = if(filename?.endsWith(".dds") == true){
+            filename?.replace(".dds", ".mp4");
+        } else {
+            filename?.replace(".mp4", ".dd");
+        }
         // automatic resume for partial files. (if the workmanager unexpectedly quited in background)
         val saveFilePath = savedDir + File.separator + filename
         val partialFile = File(saveFilePath)
@@ -432,7 +432,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                     Manifest.permission.WRITE_EXTERNAL_STORAGE
                 )
                 var pendingIntent: PendingIntent? = null
-                if (status == DownloadStatus.COMPLETE) {
+               /* if (status == DownloadStatus.COMPLETE) {
                     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
                         if (isImageOrVideoFile(contentType) && isExternalStoragePath(savedFilePath)) {
                             addImageOrVideoToGallery(
@@ -459,11 +459,12 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                             log("There's no application that can open the file $savedFilePath")
                         }
                     }
-                }
-                //String packageName = context.getPackageName();
-               //  PackageManager packageManager = context.getPackageManager();
-                // Intent intent = packageManager.getLaunchIntentForPackage(packageName)
-               //  pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+                }*/
+
+                var packageName:String = context.packageName;
+                 val packageManager:PackageManager = context.packageManager;
+                 val intent: Intent? = packageManager!!.getLaunchIntentForPackage(packageName)
+                 pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
 
                 taskDao!!.updateTask(id.toString(), status, progress)
                 updateNotification(context, actualFilename, status, progress, pendingIntent, true)
@@ -626,12 +627,15 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
 
     private fun updateNotification(
         context: Context,
-        title: String?,
+        mTitle: String?,
         status: DownloadStatus,
         progress: Int,
         intent: PendingIntent?,
         finalize: Boolean
     ) {
+        var  title: String = mTitle!!;
+        title = title.replace(".mp4", "");
+        title = title.replace(".dd", "");
         sendUpdateProcessEvent(status, progress)
 
         // Show the notification
