@@ -17,6 +17,7 @@ import android.os.Handler
 import android.provider.MediaStore
 import android.util.Log
 import androidx.annotation.RequiresApi
+import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -366,34 +367,50 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                         }
                     }
                 }
+
+                //setting the file type to dds
+                if (actualFilename != null) {
+                    actualFilename = if(actualFilename.endsWith(".dds")){
+                        actualFilename.replace(".dds", ".mp4");
+                    } else {
+                        actualFilename.replace(".mp4", ".dd");
+                    }
+                }
                 log("fileName = $actualFilename")
                 taskDao?.updateTask(id.toString(), actualFilename, contentType)
 
                 // opens input stream from the HTTP connection
                 inputStream = httpConn.inputStream
+
+                // opens an output stream to save into file
+
                 val savedFilePath: String?
+                savedFilePath = savedDir + File.separator + actualFilename
+
+                // opens an output stream to save into file
+                outputStream = FileOutputStream(savedFilePath, isResume)
                 // opens an output stream to save into file
                 // there are two case:
-                if (isResume) {
-                    // 1. continue downloading (append data to partial downloaded file)
-                    savedFilePath = savedDir + File.separator + actualFilename
-                    outputStream = FileOutputStream(savedFilePath, true)
-                } else {
-                    // 2. new download, create new file
-                    // there are two case according to Android SDK version and save path
-                    // From Android 11 onwards, file is only downloaded to app-specific directory (internal storage)
-                    // or public shared download directory (external storage).
-                    // The second option will ignore `savedDir` parameter.
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && saveInPublicStorage) {
-                        val uri = createFileInPublicDownloadsDir(actualFilename, contentType)
-                        savedFilePath = getMediaStoreEntryPathApi29(uri!!)
-                        outputStream = context.contentResolver.openOutputStream(uri, "w")
-                    } else {
-                        val file = createFileInAppSpecificDir(actualFilename!!, savedDir)
-                        savedFilePath = file!!.path
-                        outputStream = FileOutputStream(file, false)
-                    }
-                }
+//                if (isResume) {
+//                    // 1. continue downloading (append data to partial downloaded file)
+//                    savedFilePath = savedDir + File.separator + actualFilename
+//                    outputStream = FileOutputStream(savedFilePath, true)
+//                } else {
+//                    // 2. new download, create new file
+//                    // there are two case according to Android SDK version and save path
+//                    // From Android 11 onwards, file is only downloaded to app-specific directory (internal storage)
+//                    // or public shared download directory (external storage).
+//                    // The second option will ignore `savedDir` parameter.
+//                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && saveInPublicStorage) {
+//                        val uri = createFileInPublicDownloadsDir(actualFilename, contentType)
+//                        savedFilePath = getMediaStoreEntryPathApi29(uri!!)
+//                        outputStream = context.contentResolver.openOutputStream(uri, "w")
+//                    } else {
+//                        val file = createFileInAppSpecificDir(actualFilename!!, savedDir)
+//                        savedFilePath = file!!.path
+//                        outputStream = FileOutputStream(file, false)
+//                    }
+//                }
                 var count = downloadedBytes
                 var bytesRead: Int
                 val buffer = ByteArray(BUFFER_SIZE)
@@ -430,38 +447,57 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                     applicationContext,
                     Manifest.permission.WRITE_EXTERNAL_STORAGE
                 )
-                var pendingIntent: PendingIntent? = null
                 if (status == DownloadStatus.COMPLETE) {
-                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                        if (isImageOrVideoFile(contentType) && isExternalStoragePath(savedFilePath)) {
-                            addImageOrVideoToGallery(
-                                actualFilename,
-                                savedFilePath,
-                                getContentTypeWithoutCharset(contentType)
-                            )
-                        }
-                    }
-                    if (clickToOpenDownloadedFile) {
-                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && storage != PackageManager.PERMISSION_GRANTED) return
-                        val intent = IntentUtils.validatedFileIntent(
-                            applicationContext,
-                            savedFilePath!!,
-                            contentType
-                        )
-                        if (intent != null) {
-                            log("Setting an intent to open the file $savedFilePath")
-                            val flags: Int =
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE else PendingIntent.FLAG_CANCEL_CURRENT
-                            pendingIntent =
-                                PendingIntent.getActivity(applicationContext, 0, intent, flags)
-                        } else {
-                            log("There's no application that can open the file $savedFilePath")
-                        }
-                    }
+//                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+//                        if (isImageOrVideoFile(contentType) && isExternalStoragePath(savedFilePath)) {
+//                            addImageOrVideoToGallery(
+//                                actualFilename,
+//                                savedFilePath,
+//                                getContentTypeWithoutCharset(contentType)
+//                            )
+//                        }
+//                    }
+//                    if (clickToOpenDownloadedFile) {
+//                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && storage != PackageManager.PERMISSION_GRANTED) return
+//                        val intent = IntentUtils.validatedFileIntent(
+//                            applicationContext,
+//                            savedFilePath!!,
+//                            contentType
+//                        )
+//                        if (intent != null) {
+//                            log("Setting an intent to open the file $savedFilePath")
+//                            val flags: Int =
+//                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE else PendingIntent.FLAG_CANCEL_CURRENT
+//                            pendingIntent =
+//                                PendingIntent.getActivity(applicationContext, 0, intent, flags)
+//                        } else {
+//                            log("There's no application that can open the file $savedFilePath")
+//                        }
+//                    }
                 }
-                taskDao!!.updateTask(id.toString(), status, progress)
-                updateNotification(context, actualFilename, status, progress, pendingIntent, true)
-                log(if (isStopped) "Download canceled" else "File downloaded")
+
+                try{
+                    val packageName = context.packageName
+                    log("shrey2")
+                    val packageManager = context.packageManager
+                    log("shrey11")
+                    val intent = packageManager.getLaunchIntentForPackage(packageName)
+                    val pendingIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                    } else {
+                        PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+                    }
+
+                    log("shrey111$id $status $progress")
+                    taskDao!!.updateTask(id.toString(), status, progress)
+                    log("shrey1111")
+                    updateNotification(context, actualFilename, status, progress, pendingIntent, true)
+                    log("shrey11111")
+                } catch (e : IOException){
+                    log("shrey12"+e.message)
+                }
+
+                log(if (isStopped) "Download canceled shrey" else "File downloaded shrey")
             } else {
                 val loadedTask = taskDao!!.loadTask(id.toString())
                 val status =
@@ -474,6 +510,8 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             taskDao!!.updateTask(id.toString(), DownloadStatus.FAILED, lastProgress)
             updateNotification(context, actualFilename ?: fileURL, DownloadStatus.FAILED, -1, null, true)
             e.printStackTrace()
+            log( "Download canceled shrey File downloaded shrey" + e.message.toString())
+
         } finally {
             if (outputStream != null) {
                 outputStream.flush()
@@ -628,10 +666,15 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
     ) {
         sendUpdateProcessEvent(status, progress)
 
+        println("shrey123")
+
+        var download_title = title;
+        download_title = download_title!!.replace(".mp4", "").replace(".dd", "")
+
         // Show the notification
         if (showNotification) {
             // Create the notification
-            val builder = NotificationCompat.Builder(context, CHANNEL_ID).setContentTitle(title)
+            val builder = NotificationCompat.Builder(context, CHANNEL_ID).setContentTitle(download_title)
                 .setContentIntent(intent)
                 .setOnlyAlertOnce(true)
                 .setAutoCancel(true)
@@ -705,7 +748,22 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                     return
                 }
             }
-            log("Update notification: {notificationId: $primaryId, title: $title, status: $status, progress: $progress}")
+            log("Update notification shrey: {notificationId: $primaryId, title: $download_title, status: $status, progress: $progress}")
+            if (ActivityCompat.checkSelfPermission(
+                    applicationContext,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                log("no permission")
+                // TODO: Consider calling
+                //    ActivityCompat#requestPermissions
+                // here to request the missing permissions, and then overriding
+                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                //                                          int[] grantResults)
+                // to handle the case where the user grants the permission. See the documentation
+                // for ActivityCompat#requestPermissions for more details.
+
+            }
             NotificationManagerCompat.from(context).notify(primaryId, builder.build())
             lastCallUpdateNotification = System.currentTimeMillis()
         }
